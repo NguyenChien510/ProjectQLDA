@@ -97,7 +97,7 @@ async function sendMessage() {
         // Replace loading with answer
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) {
-            loadingEl.querySelector('.content').innerText = data.answer;
+            loadingEl.querySelector('.content').innerHTML = marked.parse(data.answer);
         }
     } catch (err) {
         const loadingEl = document.getElementById(loadingId);
