@@ -14,7 +14,8 @@ class ChatHistoryService:
     def _init_db(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        # Table for files/sessions
+        
+        # 1. Base tables
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS sessions (
                 file_id TEXT PRIMARY KEY,
@@ -22,7 +23,6 @@ class ChatHistoryService:
                 created_at TEXT
             )
         ''')
-        # Table for messages
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,23 +33,45 @@ class ChatHistoryService:
                 FOREIGN KEY (file_id) REFERENCES sessions (file_id)
             )
         ''')
+        
+        # 2. Migrations
+        cursor.execute("PRAGMA table_info(sessions)")
+        cols = [c[1] for c in cursor.fetchall()]
+        if "full_text" not in cols:
+            cursor.execute("ALTER TABLE sessions ADD COLUMN full_text TEXT")
+            
+        cursor.execute("PRAGMA table_info(messages)")
+        cols = [c[1] for c in cursor.fetchall()]
+        if "metadata" not in cols:
+            cursor.execute("ALTER TABLE messages ADD COLUMN metadata TEXT")
+            
         conn.commit()
         conn.close()
 
-    def save_session(self, file_id: str, file_name: str):
+    def save_session(self, file_id: str, file_name: str, full_text: str = ""):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute('INSERT OR IGNORE INTO sessions (file_id, file_name, created_at) VALUES (?, ?, ?)',
-                       (file_id, file_name, datetime.now().isoformat()))
+        cursor.execute('INSERT OR IGNORE INTO sessions (file_id, file_name, full_text, created_at) VALUES (?, ?, ?, ?)',
+                       (file_id, file_name, full_text, datetime.now().isoformat()))
         conn.commit()
         conn.close()
 
-    def save_message(self, file_id: str, role: str, content: str):
+    def get_session_text(self, file_id: str):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT full_text, file_name FROM sessions WHERE file_id = ?', (file_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0], row[1]
+        return "", ""
+
+    def save_message(self, file_id: str, role: str, content: str, metadata: str = None):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         timestamp = datetime.now().strftime("%H:%M")
-        cursor.execute('INSERT INTO messages (file_id, role, content, timestamp) VALUES (?, ?, ?, ?)',
-                       (file_id, role, content, timestamp))
+        cursor.execute('INSERT INTO messages (file_id, role, content, metadata, timestamp) VALUES (?, ?, ?, ?, ?)',
+                       (file_id, role, content, metadata, timestamp))
         conn.commit()
         conn.close()
 
@@ -64,8 +86,8 @@ class ChatHistoryService:
     def get_messages(self, file_id: str):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT role, content, timestamp FROM messages WHERE file_id = ? ORDER BY id ASC', (file_id,))
-        messages = [{"role": row[0], "content": row[1], "timestamp": row[2]} for row in cursor.fetchall()]
+        cursor.execute('SELECT role, content, metadata, timestamp FROM messages WHERE file_id = ? ORDER BY id ASC', (file_id,))
+        messages = [{"role": row[0], "content": row[1], "metadata": row[2], "timestamp": row[3]} for row in cursor.fetchall()]
         conn.close()
         return messages
     def delete_session(self, file_id: str):

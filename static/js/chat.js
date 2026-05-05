@@ -1,5 +1,7 @@
 let currentFileId = null;
 let currentFileName = "";
+let currentFullText = "";
+let messageSources = {}; // Store sources for each message index
 
 const fileList = document.getElementById('file-list');
 const fileUpload = document.getElementById('file-upload');
@@ -11,9 +13,13 @@ const fileSearch = document.getElementById('file-search');
 
 // Load sessions on startup
 async function loadSessions() {
-    const res = await fetch('/sessions');
-    const sessions = await res.json();
-    renderFileList(sessions);
+    try {
+        const res = await fetch('/sessions');
+        const sessions = await res.json();
+        renderFileList(sessions);
+    } catch (e) {
+        console.error("Lỗi khi tải sessions:", e);
+    }
 }
 
 function renderFileList(sessions) {
@@ -44,10 +50,12 @@ async function deleteSession(event, fileId) {
             if (currentFileId === fileId) {
                 currentFileId = null;
                 currentFileName = "";
+                currentFullText = "";
                 chatHeader.innerText = "Chọn tài liệu để bắt đầu";
                 chatMessages.innerHTML = '';
                 userInput.disabled = true;
                 sendBtn.disabled = true;
+                toggleSourcePanel(false);
             }
             await loadSessions();
         } else {
@@ -68,9 +76,22 @@ async function selectSession(fileId, fileName) {
     userInput.disabled = false;
     sendBtn.disabled = false;
     
+    // Fetch full text
+    try {
+        const textRes = await fetch(`/text/${fileId}`);
+        const textData = await textRes.json();
+        currentFullText = textData.text;
+    } catch (err) {
+        console.error("Lỗi khi tải nội dung văn bản:", err);
+        currentFullText = "";
+    }
+    
     // Update active UI
     document.querySelectorAll('.file-item').forEach(el => {
-        el.classList.toggle('active', el.innerText.includes(fileName));
+        const span = el.querySelector('.file-info span');
+        if (span) {
+            el.classList.toggle('active', span.innerText === fileName);
+        }
     });
     
     // Load messages
@@ -78,10 +99,23 @@ async function selectSession(fileId, fileName) {
     const history = await res.json();
     
     chatMessages.innerHTML = '';
+    messageSources = {};
     if (history.length === 0) {
         appendMessage('assistant', `Tôi đã sẵn sàng trả lời các câu hỏi về tài liệu: ${fileName}. Bạn có thể gõ "Tóm tắt tài liệu" để xem bản tóm tắt.`);
     } else {
-        history.forEach(msg => appendMessage(msg.role, msg.content));
+        history.forEach((msg, idx) => {
+            const id = `msg-${idx}`;
+            let sources = [];
+            if (msg.role === 'assistant' && msg.metadata) {
+                try {
+                    sources = JSON.parse(msg.metadata);
+                    messageSources[id] = sources;
+                } catch (e) {
+                    console.error("Error parsing metadata:", e);
+                }
+            }
+            appendMessage(msg.role, msg.content, id, sources);
+        });
     }
 }
 
@@ -114,7 +148,6 @@ async function sendMessage() {
     userInput.style.height = 'auto';
     appendMessage('user', text);
     
-    // Loading indicator
     const loadingId = 'loading-' + Date.now();
     appendMessage('assistant', '<span class="dots"></span>', loadingId);
     
@@ -124,33 +157,137 @@ async function sendMessage() {
     
     try {
         const res = await fetch('/chat', { method: 'POST', body: formData });
+        if (!res.ok) {
+            const errorMsg = await res.json().catch(() => ({message: "Lỗi hệ thống (500)"}));
+            throw new Error(errorMsg.message || "Lỗi khi gọi API");
+        }
+        
         const data = await res.json();
         
-        // Replace loading with answer
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) {
-            loadingEl.querySelector('.content').innerHTML = marked.parse(data.answer);
+            const content = data.answer || "Lỗi định dạng dữ liệu";
+            const sources = data.sources || [];
+            
+            loadingEl.querySelector('.content').innerHTML = formatAnswerWithCitations(content, sources, loadingId);
+            messageSources[loadingId] = sources;
         }
     } catch (err) {
+        console.error(err);
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) {
-            loadingEl.querySelector('.content').innerText = 'Lỗi: Không thể kết nối với server.';
+            loadingEl.querySelector('.content').innerText = `Lỗi: ${err.message}`;
         }
     }
     
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-function appendMessage(role, content, id = null) {
+function formatAnswerWithCitations(text, sources, msgId) {
+    if (typeof text !== 'string') text = String(text);
+    
+    let html = marked.parse(text);
+    if (!sources || sources.length === 0) return html;
+
+    let citationFound = false;
+    sources.forEach(source => {
+        const citationTag = `[${source.id}]`;
+        const buttonHtml = `<button class="citation-btn" onclick="showSource('${msgId}', ${source.id})">${citationTag}</button>`;
+        
+        const escapedTag = citationTag.replace(/[\[\]]/g, '\\$&');
+        const regex = new RegExp(escapedTag, 'g');
+        
+        if (html.match(regex)) {
+            html = html.replace(regex, buttonHtml);
+            citationFound = true;
+        }
+    });
+
+    if (!citationFound && sources.length > 0) {
+        html += `<div style="margin-top: 10px; border-top: 1px dashed #ccc; padding-top: 5px;">
+                    <button class="citation-btn" style="font-size: 11px;" onclick="showSource('${msgId}', 1)">
+                        <i class="fas fa-search"></i> Xem nguồn tài liệu
+                    </button>
+                 </div>`;
+    }
+    
+    return html;
+}
+
+function showSource(msgId, sourceId) {
+    const sources = messageSources[msgId];
+    if (!sources) return;
+    
+    const source = sources.find(s => s.id === sourceId);
+    if (!source) return;
+
+    toggleSourcePanel(true);
+    const sourceContent = document.getElementById('source-content');
+    
+    if (!currentFullText) {
+        sourceContent.innerHTML = `<div class="placeholder-text">Không tìm thấy nội dung văn bản gốc.</div>`;
+        return;
+    }
+
+    // New Accuracy Logic: Use offsets if available
+    let highlightedText = "";
+    if (source.start !== undefined && source.end !== undefined && source.start !== null) {
+        const start = source.start;
+        const end = source.end;
+        
+        const before = currentFullText.substring(0, start);
+        const chunk = currentFullText.substring(start, end);
+        const after = currentFullText.substring(end);
+        
+        // Escape HTML for safety, but keep our <mark>
+        highlightedText = escapeHtml(before) + '<mark class="highlight">' + escapeHtml(chunk) + '</mark>' + escapeHtml(after);
+    } else {
+        // Fallback for older data: regex match
+        const escapedContent = source.content.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedContent})`, 'gi');
+        highlightedText = escapeHtml(currentFullText).replace(regex, '<mark class="highlight">$1</mark>');
+    }
+    
+    sourceContent.innerHTML = `<pre>${highlightedText}</pre>`;
+    
+    setTimeout(() => {
+        const firstMark = sourceContent.querySelector('mark');
+        if (firstMark) {
+            firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 100);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function toggleSourcePanel(show) {
+    const panel = document.getElementById('source-panel');
+    if (panel) {
+        panel.classList.toggle('open', show);
+    }
+}
+
+function appendMessage(role, content, id = null, sources = null) {
     const div = document.createElement('div');
     div.className = `message ${role}`;
     if (id) div.id = id;
     
     const icon = role === 'user' ? 'fa-user-astronaut' : 'fa-robot';
     
+    let innerContent = "";
+    if (role === 'assistant') {
+        innerContent = formatAnswerWithCitations(content, sources || [], id);
+    } else {
+        innerContent = marked.parse(String(content));
+    }
+
     div.innerHTML = `
         <div class="avatar"><i class="fas ${icon}"></i></div>
-        <div class="content">${marked.parse(content)}</div>
+        <div class="content">${innerContent}</div>
     `;
     
     chatMessages.appendChild(div);
@@ -166,18 +303,19 @@ userInput.onkeydown = (e) => {
     }
 };
 
-// Auto resize textarea
 userInput.oninput = () => {
     userInput.style.height = 'auto';
     userInput.style.height = userInput.scrollHeight + 'px';
 };
 
-// Search filter
 fileSearch.oninput = (e) => {
     const term = e.target.value.toLowerCase();
     document.querySelectorAll('.file-item').forEach(item => {
-        const text = item.innerText.toLowerCase();
-        item.style.display = text.includes(term) ? 'flex' : 'none';
+        const span = item.querySelector('.file-info span');
+        if (span) {
+            const text = span.innerText.toLowerCase();
+            item.style.display = text.includes(term) ? 'flex' : 'none';
+        }
     });
 };
 

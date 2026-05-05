@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import shutil
 import os
+import sqlite3
 from services.rag_service import RAGService
 
 app = FastAPI()
@@ -30,6 +31,25 @@ async def get_sessions():
 async def get_history(file_id: str):
     return rag_service.history.get_messages(file_id)
 
+@app.get("/text/{file_id}")
+async def get_text(file_id: str):
+    text, file_name = rag_service.history.get_session_text(file_id)
+    
+    # Nếu là session cũ chưa có text, thử load lại từ file
+    if not text and file_name:
+        file_path = os.path.join(UPLOAD_DIR, file_name)
+        if os.path.exists(file_path):
+            from services.file_loader import FileLoader
+            text = FileLoader.get_text(file_path)
+            # Cập nhật lại vào DB để lần sau không phải load lại
+            conn = sqlite3.connect(rag_service.history.db_path)
+            cursor = conn.cursor()
+            cursor.execute("UPDATE sessions SET full_text = ? WHERE file_id = ?", (text, file_id))
+            conn.commit()
+            conn.close()
+            
+    return {"text": text}
+
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     file_path = os.path.join(UPLOAD_DIR, file.filename)
@@ -43,8 +63,8 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.post("/chat")
 async def chat(file_id: str = Form(...), message: str = Form(...)):
-    answer = rag_service.get_answer(file_id, message)
-    return {"answer": answer}
+    result = rag_service.get_answer(file_id, message)
+    return result
 
 @app.delete("/session/{file_id}")
 async def delete_session(file_id: str):
