@@ -42,3 +42,11 @@ class ChromaDBService:
                     "metadata": meta
                 })
         return formatted_results
+
+    def delete_documents(self, file_id: str):
+        try:
+            self.collection.delete(where={"file_id": file_id})
+            return True
+        except Exception as e:
+            print(f"Lỗi khi xóa vector data: {e}")
+            return False

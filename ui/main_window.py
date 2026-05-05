@@ -45,3 +45,10 @@ async def upload_file(file: UploadFile = File(...)):
 async def chat(file_id: str = Form(...), message: str = Form(...)):
     answer = rag_service.get_answer(file_id, message)
     return {"answer": answer}
+
+@app.delete("/session/{file_id}")
+async def delete_session(file_id: str):
+    success = rag_service.delete_session(file_id)
+    if success:
+        return {"message": "Xóa thành công"}
+    return JSONResponse(status_code=500, content={"message": "Lỗi khi xóa"})

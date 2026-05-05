@@ -21,10 +21,42 @@ function renderFileList(sessions) {
     sessions.forEach(session => {
         const item = document.createElement('div');
         item.className = `file-item ${currentFileId === session.file_id ? 'active' : ''}`;
-        item.innerHTML = `<i class="far fa-file-alt"></i> ${session.file_name}`;
-        item.onclick = () => selectSession(session.file_id, session.file_name);
+        item.innerHTML = `
+            <div class="file-info" onclick="selectSession('${session.file_id}', '${session.file_name}')">
+                <i class="far fa-file-alt"></i> 
+                <span>${session.file_name}</span>
+            </div>
+            <button class="delete-session-btn" onclick="deleteSession(event, '${session.file_id}')">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        `;
         fileList.appendChild(item);
     });
+}
+
+async function deleteSession(event, fileId) {
+    event.stopPropagation();
+    if (!confirm('Bạn có chắc chắn muốn xóa lịch sử chat và dữ liệu của tài liệu này?')) return;
+    
+    try {
+        const res = await fetch(`/session/${fileId}`, { method: 'DELETE' });
+        if (res.ok) {
+            if (currentFileId === fileId) {
+                currentFileId = null;
+                currentFileName = "";
+                chatHeader.innerText = "Chọn tài liệu để bắt đầu";
+                chatMessages.innerHTML = '';
+                userInput.disabled = true;
+                sendBtn.disabled = true;
+            }
+            await loadSessions();
+        } else {
+            alert('Lỗi khi xóa session.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Lỗi kết nối server.');
+    }
 }
 
 async function selectSession(fileId, fileName) {

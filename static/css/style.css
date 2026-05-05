@@ -120,16 +120,27 @@ body::after {
 }
 
 .file-item {
-    padding: 10px 12px;
+    padding: 8px 12px;
     border-radius: 10px;
-    cursor: pointer;
     margin-bottom: 4px;
     font-size: 14px;
     color: var(--text-main);
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
     transition: var(--transition);
+    group: hover;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .file-item:hover {
@@ -139,6 +150,26 @@ body::after {
 .file-item.active {
     background: #ececf1;
     font-weight: 600;
+}
+
+.delete-session-btn {
+    opacity: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: var(--transition);
+}
+
+.file-item:hover .delete-session-btn {
+    opacity: 1;
+}
+
+.delete-session-btn:hover {
+    background: #d1d1d1;
+    color: #ef4444; /* Red color on hover */
 }
 
 /* Chat Area */

@@ -68,3 +68,17 @@ class ChatHistoryService:
         messages = [{"role": row[0], "content": row[1], "timestamp": row[2]} for row in cursor.fetchall()]
         conn.close()
         return messages
+    def delete_session(self, file_id: str):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            # Delete messages first due to foreign key
+            cursor.execute('DELETE FROM messages WHERE file_id = ?', (file_id,))
+            cursor.execute('DELETE FROM sessions WHERE file_id = ?', (file_id,))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"Lỗi khi xóa session: {e}")
+            return False
+        finally:
+            conn.close()

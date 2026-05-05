@@ -102,3 +102,10 @@ Hãy trình bày một bản tóm tắt khiến người đọc nắm bắt đư
         # Lưu vào lịch sử nhưng có ghi chú là tóm tắt
         self.history.save_message(file_id, "assistant", f"## Tóm tắt tài liệu\n{summary}")
         return summary
+
+    def delete_session(self, file_id: str):
+        # 1. Xóa lịch sử trong SQLite
+        h_ok = self.history.delete_session(file_id)
+        # 2. Xóa vector trong ChromaDB
+        c_ok = self.chroma.delete_documents(file_id)
+        return h_ok and c_ok
