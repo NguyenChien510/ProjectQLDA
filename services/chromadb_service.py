@@ -17,14 +17,20 @@ class ChromaDBService:
             embedding_function=self.emb_fn
         )
 
-    def add_documents(self, chunks: list, file_id: str, file_name: str):
+    def add_documents(self, chunks: list, file_id: str, file_name: str, metadatas: list = None):
         ids = [f"{file_id}_{i}" for i in range(len(chunks))]
-        metadatas = [{"file_id": file_id, "file_name": file_name} for _ in chunks]
+        
+        final_metadatas = []
+        for i in range(len(chunks)):
+            m = {"file_id": file_id, "file_name": file_name}
+            if metadatas and i < len(metadatas):
+                m.update(metadatas[i])
+            final_metadatas.append(m)
         
         self.collection.add(
             documents=chunks,
             ids=ids,
-            metadatas=metadatas
+            metadatas=final_metadatas
         )
 
     def query(self, query_text: str, file_id: str, n_results: int = 5):

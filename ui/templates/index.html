@@ -27,26 +27,39 @@
         </div>
     </div>
 
-    <div class="chat-container">
-        <div class="chat-header" id="chat-header">
-            Chọn tài liệu để bắt đầu
-        </div>
-        
-        <div id="chat-messages">
-            <div class="message assistant">
-                <div class="avatar">AI</div>
-                <div class="content">
-                    Chào mừng bạn! Hãy upload một file (PDF, DOCX, TXT) ở thanh bên trái để bắt đầu hỏi đáp và tóm tắt tài liệu.
+    <div class="main-wrapper">
+        <div class="chat-container">
+            <div class="chat-header" id="chat-header">
+                Chọn tài liệu để bắt đầu
+            </div>
+            
+            <div id="chat-messages">
+                <div class="message assistant">
+                    <div class="avatar"><i class="fas fa-robot"></i></div>
+                    <div class="content">
+                        Chào mừng bạn! Hãy upload một file (PDF, DOCX, TXT) ở thanh bên trái để bắt đầu hỏi đáp và tóm tắt tài liệu.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-container">
+                <div class="input-box">
+                    <textarea id="user-input" placeholder="Gửi tin nhắn..." rows="1" disabled></textarea>
+                    <button class="send-btn" id="send-btn" disabled>
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
                 </div>
             </div>
         </div>
-        
-        <div class="input-container">
-            <div class="input-box">
-                <textarea id="user-input" placeholder="Gửi tin nhắn..." rows="1" disabled></textarea>
-                <button class="send-btn" id="send-btn" disabled>
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+
+        <div class="source-panel" id="source-panel">
+            <div class="source-header">
+                <span><i class="fas fa-file-alt"></i> Nguồn trích dẫn</span>
+                <button class="close-source" onclick="toggleSourcePanel(false)"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="source-content" id="source-content">
+                <!-- Document text with highlights will appear here -->
+                <div class="placeholder-text">Chọn một trích dẫn trong chat để xem nội dung chi tiết trong văn bản gốc.</div>
             </div>
         </div>
     </div>

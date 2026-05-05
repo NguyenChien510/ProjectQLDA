@@ -80,7 +80,13 @@ class FileLoader:
             
         start = 0
         while start < len(text):
-            end = start + chunk_size
-            chunks.append(text[start:end])
+            end = min(start + chunk_size, len(text))
+            chunks.append({
+                "text": text[start:end],
+                "start": start,
+                "end": end
+            })
+            if end == len(text):
+                break
             start += chunk_size - chunk_overlap
         return chunks
