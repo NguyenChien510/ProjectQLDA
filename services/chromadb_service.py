@@ -27,10 +27,18 @@ class ChromaDBService:
             metadatas=metadatas
         )
 
-    def query(self, query_text: str, file_id: str, n_results: int = 3):
+    def query(self, query_text: str, file_id: str, n_results: int = 5):
         results = self.collection.query(
             query_texts=[query_text],
             n_results=n_results,
             where={"file_id": file_id}
         )
-        return results['documents'][0] if results['documents'] else []
+        
+        formatted_results = []
+        if results['documents'] and results['documents'][0]:
+            for doc, meta in zip(results['documents'][0], results['metadatas'][0]):
+                formatted_results.append({
+                    "content": doc,
+                    "metadata": meta
+                })
+        return formatted_results
