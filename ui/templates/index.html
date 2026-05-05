@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local RAG Analysis</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="light-theme">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="label">ANALYSIS SYSTEM</div>
+            <div class="title">Local RAG</div>
+        </div>
+        <button class="new-chat-btn" onclick="document.getElementById('file-upload').click()">
+            <i class="fas fa-plus"></i> Upload File
+        </button>
+        <input type="file" id="file-upload" hidden accept=".pdf,.docx,.txt">
+        
+        <div class="search-box">
+            <input type="text" id="file-search" placeholder="Tìm kiếm file...">
+        </div>
+        
+        <div class="file-list" id="file-list">
+            <!-- File items will be loaded here -->
+        </div>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-header" id="chat-header">
+            Chọn tài liệu để bắt đầu
+        </div>
+        
+        <div id="chat-messages">
+            <div class="message assistant">
+                <div class="avatar">AI</div>
+                <div class="content">
+                    Chào mừng bạn! Hãy upload một file (PDF, DOCX, TXT) ở thanh bên trái để bắt đầu hỏi đáp và tóm tắt tài liệu.
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <div class="input-box">
+                <textarea id="user-input" placeholder="Gửi tin nhắn..." rows="1" disabled></textarea>
+                <button class="send-btn" id="send-btn" disabled>
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/js/chat.js"></script>
+</body>
+</html>
